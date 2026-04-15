@@ -75,6 +75,30 @@
         </div>
       </div>
 
+      <!-- Subtask stats row -->
+      <div v-if="ov.subtask_stats?.total>0" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+          <div class="text-xs text-slate-500">Subtasks</div>
+          <div class="text-2xl font-bold text-slate-800">{{ov.subtask_stats.total}}</div>
+          <div class="text-xs text-slate-400">All synced</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+          <div class="text-xs text-slate-500">Completed</div>
+          <div class="text-2xl font-bold text-green-600">{{ov.subtask_stats.completed}}</div>
+          <div class="text-xs text-slate-400">{{ov.subtask_stats.total>0?Math.round(ov.subtask_stats.completed/ov.subtask_stats.total*100):0}}%</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+          <div class="text-xs text-slate-500">Today Must-Do</div>
+          <div class="text-2xl font-bold text-amber-600">{{ov.subtask_stats.today_must}}</div>
+          <div class="text-xs text-slate-400">Pending today</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+          <div class="text-xs text-slate-500">Overdue</div>
+          <div class="text-2xl font-bold" :class="ov.subtask_stats.overdue>0?'text-red-600':'text-slate-800'">{{ov.subtask_stats.overdue}}</div>
+          <div class="text-xs text-slate-400">Past deadline</div>
+        </div>
+      </div>
+
       <!-- Capacity & Zombie row -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
         <!-- Capacity -->
@@ -216,12 +240,14 @@
           class="bg-white rounded-xl shadow-sm border p-4 cursor-pointer hover:shadow-md transition-shadow"
           @click="goProjectDetail(p.id)">
           <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
               <span class="font-medium text-slate-800">{{p.name}}</span>
               <span v-if="p.is_focus" class="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium">FOCUS</span>
+              <span v-if="p.priority" :class="priorityClass(p.priority)" class="text-[10px] px-1.5 py-0.5 rounded font-medium">{{p.priority}}</span>
               <span :class="statusClass(p.status)" class="text-[10px] px-1.5 py-0.5 rounded font-medium">{{p.status}}</span>
+              <span v-if="p.bitable_status && p.bitable_status !== p.status" class="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{{p.bitable_status}}</span>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
               <button @click.stop="toggleFocus(p)" class="text-xs border px-2 py-0.5 rounded hover:bg-slate-50"
                 :class="p.is_focus?'border-indigo-300 text-indigo-600':'border-slate-200 text-slate-500'">
                 {{p.is_focus?'Unfocus':'Focus'}}
@@ -232,13 +258,16 @@
             <div class="h-full bg-indigo-500 rounded-full transition-all" :style="{width:(p.progress||0)+'%'}"></div>
           </div>
           <div class="flex justify-between text-xs text-slate-500">
-            <span>{{p.progress||0}}% · {{p.owner||'No owner'}}</span>
-            <span>{{p.start_date||'?'}} → {{p.target_date||'?'}}</span>
+            <span>{{p.progress||0}}% · {{p.owner||'No owner'}} <template v-if="p.task_type">· {{p.task_type}}</template></span>
+            <span>{{p.target_date||'No deadline'}}</span>
           </div>
         </div>
       </div>
 
-      <div v-if="filteredProjects.length===0" class="text-center py-12 text-slate-400">No projects yet. Click "New Project" to create one.</div>
+      <div v-if="filteredProjects.length===0" class="text-center py-12 text-slate-400">
+        <div v-if="projects.length===0">No projects yet. Trigger a Bitable sync from Settings, or create one manually.</div>
+        <div v-else>No projects matching "{{projectFilter}}" filter.</div>
+      </div>
     </section>
 
     <!-- ═══════════════════ PROJECT DETAIL ═══════════════════ -->
@@ -297,6 +326,36 @@
           </div>
         </div>
         <div v-else class="text-sm text-slate-400">No milestones</div>
+      </div>
+
+      <!-- Subtasks (from Bitable) -->
+      <div class="bg-white rounded-xl shadow-sm border p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-700">Subtasks</h3>
+          <div v-if="currentProject.subtasks?.length" class="flex items-center gap-2">
+            <span class="text-xs text-slate-500">{{subtaskDoneCount(currentProject.subtasks)}}/{{currentProject.subtasks.length}} done</span>
+            <div class="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div class="h-full bg-green-500 rounded-full transition-all" :style="{width: subtaskDonePercent(currentProject.subtasks)+'%'}"></div>
+            </div>
+          </div>
+        </div>
+        <div v-if="currentProject.subtasks?.length" class="space-y-1">
+          <div v-for="st in currentProject.subtasks" :key="st.id"
+            class="flex items-center gap-2 text-sm border-b border-slate-50 py-2 last:border-0">
+            <span :class="st.status==='已完成'||st.status==='已取消'?'text-green-500':'st.is_today_must?'text-amber-500':'text-slate-300'" class="text-base shrink-0">
+              {{st.status==='已完成'||st.status==='已取消'?'&#10003;':st.is_today_must?'&#9733;':'&#9675;'}}
+            </span>
+            <span class="flex-1 truncate" :class="st.status==='已完成'||st.status==='已取消'?'line-through text-slate-400':'text-slate-700'">{{st.title}}</span>
+            <span v-if="st.delegate" class="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded shrink-0">{{st.delegate}}</span>
+            <span v-if="st.sprint_week" class="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded shrink-0">{{st.sprint_week}}</span>
+            <span v-if="st.priority" :class="priorityClass(st.priority)" class="text-[10px] px-1.5 py-0.5 rounded shrink-0">{{st.priority}}</span>
+            <span v-if="st.block_reason" class="text-[10px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded truncate max-w-[120px] shrink-0">{{st.block_reason}}</span>
+            <a v-if="st.deliverable_url && (st.status==='已完成'||st.status==='已取消')" :href="st.deliverable_url" target="_blank" @click.stop
+              class="text-[10px] text-indigo-600 hover:underline shrink-0">Deliverable</a>
+            <span class="text-[10px] text-slate-400 shrink-0">{{st.due_date||''}}</span>
+          </div>
+        </div>
+        <div v-else class="text-sm text-slate-400">No subtasks synced. Configure Subtask Table ID in Settings and trigger a sync.</div>
       </div>
 
       <!-- Project OKRs -->
@@ -455,7 +514,21 @@
           <div v-if="bot.linked_projects?.length" class="flex flex-wrap gap-1 mb-2">
             <span v-for="slug in bot.linked_projects" :key="slug" class="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{{slug}}</span>
           </div>
-          <div class="flex gap-2 mt-2">
+          <div v-if="bot.cron_jobs?.length" class="mt-3 border-t border-slate-100 pt-3">
+            <div class="text-xs font-medium text-slate-600 mb-1.5">Scheduled Jobs</div>
+            <div class="space-y-1.5">
+              <div v-for="(job,ji) in bot.cron_jobs" :key="ji" class="bg-slate-50 rounded-lg px-3 py-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-medium text-slate-700 truncate mr-2">{{cronJobName(job)}}</span>
+                  <span :class="job.enabled===false?'bg-slate-200 text-slate-500':'bg-green-100 text-green-700'" class="text-[10px] px-1.5 py-0.5 rounded shrink-0">
+                    {{job.enabled===false?'Off':'Active'}}
+                  </span>
+                </div>
+                <div class="text-[10px] text-slate-500 font-mono mt-0.5">{{job.kind==='cron'?cronHuman(job.expr):'One-time'}} · {{job.tz||'UTC'}}</div>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-3">
             <button @click="openBotModal(bot)" class="text-xs text-indigo-600 hover:underline">Edit</button>
             <button @click="deleteBot(bot)" class="text-xs text-slate-400 hover:text-red-500">Delete</button>
           </div>
@@ -513,8 +586,12 @@
             <input v-model="settingsForm.feishu_base_id" type="text" placeholder="base_xxxx" class="w-full border rounded-lg px-3 py-2 text-sm font-mono" />
           </div>
           <div>
-            <label class="block text-sm text-slate-600 mb-1">Feishu Table ID</label>
+            <label class="block text-sm text-slate-600 mb-1">Feishu Project Table ID</label>
             <input v-model="settingsForm.feishu_table_id" type="text" placeholder="tbl_xxxx" class="w-full border rounded-lg px-3 py-2 text-sm font-mono" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">Feishu Subtask Table ID</label>
+            <input v-model="settingsForm.feishu_subtask_table_id" type="text" placeholder="tbl_xxxx" class="w-full border rounded-lg px-3 py-2 text-sm font-mono" />
           </div>
         </div>
         <div class="mt-4 flex items-center gap-3">
@@ -782,6 +859,27 @@ createApp({
       try { return marked.parse(text || ''); } catch { return text; }
     }
 
+    function subtaskDoneCount(subs) {
+      return (subs || []).filter(s => s.status === '已完成' || s.status === '已取消').length;
+    }
+    function subtaskDonePercent(subs) {
+      if (!subs || !subs.length) return 0;
+      return Math.round(subtaskDoneCount(subs) / subs.length * 100);
+    }
+    function cronJobName(job) {
+      if (job.payload?.message) return job.payload.message.substring(0, 60);
+      return job.id || 'Unnamed Job';
+    }
+    function cronHuman(expr) {
+      if (!expr) return '';
+      const parts = expr.split(' ');
+      if (parts.length < 5) return expr;
+      const [min, hour, , , dow] = parts;
+      const dowMap = {'1-5':'Weekdays','0,6':'Weekends','*':'Daily','1':'Mon','2':'Tue','3':'Wed','4':'Thu','5':'Fri','6':'Sat','0':'Sun'};
+      const dayStr = dowMap[dow] || dow;
+      return `${dayStr} ${hour}:${min.padStart(2,'0')}`;
+    }
+
     // ── Overview ─────────────────────────────────
     const ov = ref({});
     async function fetchOverview() {
@@ -983,7 +1081,7 @@ createApp({
     async function fetchDecisionLog() { try { decisionLog.value = await api('/decision-log'); } catch {} }
 
     // ── Settings ─────────────────────────────────
-    const settingsForm = reactive({current_period:'', feishu_base_id:'', feishu_table_id:''});
+    const settingsForm = reactive({current_period:'', feishu_base_id:'', feishu_table_id:'', feishu_subtask_table_id:''});
     const settingsSaving = ref(false);
     const settingsSaved = ref(false);
     const syncRuns = ref([]);
@@ -1046,6 +1144,7 @@ createApp({
       settingsForm, settingsSaving, settingsSaved, saveSettings, syncRuns, syncing, fetchSyncRuns, triggerSync,
       krProgress, confidenceClasses, confidenceBg, confidenceText,
       statusClass, objStatusClass, priorityClass, isOverdue, renderMd,
+      subtaskDoneCount, subtaskDonePercent, cronJobName, cronHuman,
     };
   },
 }).mount('#app');
