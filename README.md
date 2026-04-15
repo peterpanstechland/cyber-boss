@@ -12,17 +12,29 @@ Agent "铁哥" 每天从飞书多维表格（Bitable）读取你的真实任务�
 
 ## 截图
 
+### 铁哥飞书对话 — 晨间排程
+![Feishu Chat](docs/screenshots/02-feishu-chat.png)
+
+### 铁哥飞书对话 — 完整工作流（排程 → 派发 → 复盘）
+![Feishu Chat Full](docs/screenshots/08-feishu-chat-full.png)
+
 ### 飞书 Bitable 任务池（5 个视图 + 12 字段）
 ![Bitable Task Pool](docs/screenshots/01-bitable-task-pool.png)
-
-### 铁哥飞书对话（晨间排程）
-![Feishu Chat](docs/screenshots/02-feishu-chat.png)
 
 ### Dashboard — Overview
 ![Dashboard Overview](docs/screenshots/04-dashboard-overview.png)
 
 ### Dashboard — Bot 矩阵（17 个角色 Bot）
 ![Dashboard Bots](docs/screenshots/03-dashboard-bots.png)
+
+### 飞书开放平台 — 应用创建
+![Feishu App Create](docs/screenshots/06-feishu-app-create.png)
+
+### 飞书开放平台 — 应用审批发布
+![Feishu App Approval](docs/screenshots/05-feishu-app-approval.png)
+
+### 飞书开放平台 — 事件订阅（WebSocket 长连接）
+![Feishu Event Subscription](docs/screenshots/07-feishu-event-subscription.png)
 
 ## 架构
 
