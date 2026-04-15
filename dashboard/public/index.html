@@ -342,7 +342,7 @@
         <div v-if="currentProject.subtasks?.length" class="space-y-1">
           <div v-for="st in currentProject.subtasks" :key="st.id"
             class="flex items-center gap-2 text-sm border-b border-slate-50 py-2 last:border-0">
-            <span :class="st.status==='已完成'||st.status==='已取消'?'text-green-500':'st.is_today_must?'text-amber-500':'text-slate-300'" class="text-base shrink-0">
+            <span :class="(st.status==='已完成'||st.status==='已取消') ? 'text-green-500' : st.is_today_must ? 'text-amber-500' : 'text-slate-300'" class="text-base shrink-0">
               {{st.status==='已完成'||st.status==='已取消'?'&#10003;':st.is_today_must?'&#9733;':'&#9675;'}}
             </span>
             <span class="flex-1 truncate" :class="st.status==='已完成'||st.status==='已取消'?'line-through text-slate-400':'text-slate-700'">{{st.title}}</span>
