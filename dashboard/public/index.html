@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyber Boss Dashboard</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/marked@15/marked.min.js"></script>
+  <style>
+    [v-cloak]{display:none}
+    .prose h1,.prose h2,.prose h3{font-weight:600;margin:0.5em 0 0.3em}
+    .prose h1{font-size:1.4em} .prose h2{font-size:1.2em} .prose h3{font-size:1.05em}
+    .prose p{margin:0.4em 0} .prose ul,.prose ol{padding-left:1.5em;margin:0.4em 0}
+    .prose li{margin:0.15em 0} .prose code{background:#f1f5f9;padding:0.1em 0.3em;border-radius:3px;font-size:0.9em}
+    .prose blockquote{border-left:3px solid #cbd5e1;padding-left:0.8em;color:#64748b;margin:0.5em 0}
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen" id="app">
+<div v-cloak class="flex min-h-screen">
+
+  <!-- Mobile hamburger -->
+  <button @click="sidebarOpen=!sidebarOpen" class="sm:hidden fixed top-3 left-3 z-30 bg-indigo-700 text-white p-2 rounded-lg shadow-lg">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+
+  <!-- Sidebar overlay on mobile -->
+  <div v-if="sidebarOpen" @click="sidebarOpen=false" class="sm:hidden fixed inset-0 bg-black/40 z-20"></div>
+
+  <!-- Sidebar -->
+  <aside :class="sidebarOpen?'translate-x-0':'-translate-x-full sm:translate-x-0'" class="w-56 bg-slate-800 text-slate-300 flex flex-col shrink-0 fixed inset-y-0 left-0 z-20 transition-transform">
+    <div class="px-5 py-4 border-b border-slate-700">
+      <h1 class="text-lg font-bold text-white tracking-wide">Cyber Boss</h1>
+      <p class="text-xs text-slate-500 mt-0.5">项目管理中控台</p>
+    </div>
+    <nav class="flex-1 py-3 px-3 space-y-1 overflow-y-auto">
+      <div v-for="item in navItems" :key="item.page" @click="goPage(item.page)"
+        :class="page===item.page?'bg-indigo-600/30 text-indigo-300 font-medium':'hover:bg-slate-700/60'"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors cursor-pointer">
+        <span class="w-5 text-center">{{item.icon}}</span> {{item.label}}
+        <span v-if="item.badge" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">{{item.badge}}</span>
+      </div>
+    </nav>
+    <div class="px-4 py-3 border-t border-slate-700 text-xs text-slate-500">Cyber Boss v1.0</div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 sm:ml-56 p-4 sm:p-6 pt-14 sm:pt-6">
+
+    <!-- ═══════════════════ OVERVIEW ═══════════════════ -->
+    <section v-if="page==='overview'">
+      <h2 class="text-xl font-bold text-slate-800 mb-5">Overview</h2>
+
+      <!-- KPI row -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+          <div class="text-xs text-slate-500">Active Projects</div>
+          <div class="text-2xl font-bold text-slate-800">{{ov.projects?.active??'—'}}</div>
+          <div class="text-xs text-slate-400">Focus {{ov.projects?.focus??0}}</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+          <div class="text-xs text-slate-500">Company OKRs</div>
+          <div class="text-2xl font-bold text-slate-800">{{ov.company_okrs?.length??'—'}}</div>
+          <div class="text-xs text-slate-400">{{ov.current_period}}</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+          <div class="text-xs text-slate-500">Blockers</div>
+          <div class="text-2xl font-bold" :class="ov.blocker_count>0?'text-red-600':'text-slate-800'">{{ov.blocker_count??0}}</div>
+          <div class="text-xs text-slate-400">Global P0 / overdue</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+          <div class="text-xs text-slate-500">Bots</div>
+          <div class="text-2xl font-bold text-slate-800">{{ov.bot_health?.enabled??0}}/{{ov.bot_health?.total??0}}</div>
+          <div class="text-xs text-slate-400">Enabled / Total</div>
+        </div>
+      </div>
+
+      <!-- Capacity & Zombie row -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+        <!-- Capacity -->
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+          <h3 class="text-sm font-semibold text-slate-700 mb-3">Capacity (7d)</h3>
+          <div v-if="ov.capacity?.total_hours>0" class="space-y-2">
+            <div class="flex items-center gap-3">
+              <div class="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden flex">
+                <div class="bg-indigo-500 h-full transition-all" :style="{width: ov.capacity.deep_ratio+'%'}"></div>
+                <div class="bg-amber-400 h-full transition-all" :style="{width: (100-ov.capacity.deep_ratio)+'%'}"></div>
+              </div>
+            </div>
+            <div class="flex justify-between text-xs text-slate-500">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-indigo-500"></span>Deep Work {{ov.capacity.deep_hours}}h ({{ov.capacity.deep_ratio}}%)</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-amber-400"></span>Shallow {{ov.capacity.shallow_hours}}h</span>
+            </div>
+            <div class="text-xs text-slate-400">Completed {{ov.capacity.completed_count}}/{{ov.capacity.total_count}} tasks</div>
+          </div>
+          <div v-else class="text-sm text-slate-400">No task data synced yet</div>
+        </div>
+
+        <!-- Zombie alerts -->
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+          <h3 class="text-sm font-semibold text-slate-700 mb-3">Zombie Alerts</h3>
+          <div v-if="ov.zombies?.length>0" class="space-y-2">
+            <div v-for="z in ov.zombies" :key="z.id" class="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2 border border-red-100">
+              <div>
+                <span class="text-sm font-medium text-red-700">{{z.name}}</span>
+                <span class="text-xs text-red-500 ml-2">14d no progress</span>
+              </div>
+              <button @click="goProjectDetail(z.id)" class="text-xs text-red-600 hover:underline">View</button>
+            </div>
+          </div>
+          <div v-else class="text-sm text-slate-400 flex items-center gap-2">
+            <span class="text-green-500">&#10003;</span> No zombie projects
+          </div>
+        </div>
+      </div>
+
+      <!-- Focus projects -->
+      <div v-if="ov.focus_projects?.length" class="mb-5">
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Focus Projects</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div v-for="p in ov.focus_projects" :key="p.id" @click="goProjectDetail(p.id)"
+            class="bg-white rounded-xl shadow-sm border p-4 cursor-pointer hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-medium text-slate-800">{{p.name}}</span>
+              <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">FOCUS</span>
+            </div>
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
+              <div class="h-full bg-indigo-500 rounded-full transition-all" :style="{width: p.progress+'%'}"></div>
+            </div>
+            <div class="text-xs text-slate-500">{{p.progress}}% · {{p.owner||'—'}}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Company OKR mini -->
+      <div v-if="ov.company_okrs?.length" class="bg-white rounded-xl shadow-sm border p-5 mb-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-700">Company OKR — {{ov.current_period}}</h3>
+          <button @click="goPage('company-okr')" class="text-xs text-indigo-600 hover:underline">View All</button>
+        </div>
+        <div class="space-y-3">
+          <div v-for="obj in ov.company_okrs" :key="obj.id">
+            <div class="font-medium text-sm text-slate-700 mb-1">{{obj.code}} {{obj.title}}</div>
+            <div v-for="kr in obj.key_results" :key="kr.id" class="flex items-center gap-2 ml-4 mb-1">
+              <span :class="confidenceClasses(kr.confidence_score)" class="w-2 h-2 rounded-full shrink-0"></span>
+              <span class="text-xs text-slate-600 flex-1 truncate">{{kr.code}} {{kr.title}}</span>
+              <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-indigo-500 rounded-full" :style="{width: krProgress(kr)+'%'}"></div>
+              </div>
+              <span class="text-[10px] text-slate-400 w-8 text-right">{{krProgress(kr)}}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Procrastination leaderboard -->
+      <div v-if="ov.procrastinators?.length" class="bg-white rounded-xl shadow-sm border p-5">
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Procrastination Leaderboard</h3>
+        <div class="space-y-1">
+          <div v-for="(t,i) in ov.procrastinators" :key="i" class="flex items-center gap-2 text-sm">
+            <span class="w-5 text-center font-bold" :class="i===0?'text-red-500':i===1?'text-amber-500':'text-slate-400'">{{i+1}}</span>
+            <span class="flex-1 truncate text-slate-700">{{t.title}}</span>
+            <span class="text-xs text-slate-500">{{t.project_slug}}</span>
+            <span class="text-xs font-mono text-red-600">+{{t.consecutive_delay_days}}d</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync indicator -->
+      <div class="mt-4 text-xs text-slate-400 flex items-center gap-2">
+        <span v-if="ov.last_sync" :class="ov.last_sync.status==='success'?'text-green-500':'text-amber-500'">&#9679;</span>
+        <span v-if="ov.last_sync">Last sync: {{ov.last_sync.ended_at||ov.last_sync.started_at}} ({{ov.last_sync.status}})</span>
+        <span v-else>No sync runs yet</span>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ BLOCKERS ═══════════════════ -->
+    <section v-if="page==='blockers'">
+      <h2 class="text-xl font-bold text-slate-800 mb-5">Global Blockers</h2>
+      <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div v-if="blockers.length===0" class="p-8 text-center text-slate-500">No blockers. All clear.</div>
+        <table v-else class="w-full text-sm">
+          <thead class="bg-slate-50 text-left text-slate-600">
+            <tr><th class="p-3">Task</th><th class="p-3">Project</th><th class="p-3">Priority</th><th class="p-3">Blocker</th><th class="p-3">Due</th><th class="p-3">Status</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="b in blockers" :key="b.id" class="border-t hover:bg-slate-50">
+              <td class="p-3 font-medium">{{b.title}}</td>
+              <td class="p-3 text-xs">{{b.project_slug}}</td>
+              <td class="p-3"><span :class="priorityClass(b.priority)" class="px-2 py-0.5 rounded text-xs font-medium">{{b.priority||'—'}}</span></td>
+              <td class="p-3 text-xs text-red-600 max-w-[200px] truncate">{{b.blocker}}</td>
+              <td class="p-3 text-xs" :class="isOverdue(b.due_date)?'text-red-600 font-medium':'text-slate-500'">{{b.due_date||'—'}}</td>
+              <td class="p-3 text-xs">{{b.status}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ PROJECTS ═══════════════════ -->
+    <section v-if="page==='projects'">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-bold text-slate-800">Projects</h2>
+        <button @click="openProjectModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">New Project</button>
+      </div>
+
+      <!-- Filters -->
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button v-for="s in ['all','active','paused','done','archived']" :key="s" @click="projectFilter=s"
+          :class="projectFilter===s?'bg-indigo-600 text-white':'bg-white text-slate-600 hover:bg-slate-50'"
+          class="px-3 py-1 rounded-lg text-xs border transition-colors">{{s==='all'?'All':s}}</button>
+      </div>
+
+      <div class="space-y-3">
+        <div v-for="p in filteredProjects" :key="p.id"
+          class="bg-white rounded-xl shadow-sm border p-4 cursor-pointer hover:shadow-md transition-shadow"
+          @click="goProjectDetail(p.id)">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-slate-800">{{p.name}}</span>
+              <span v-if="p.is_focus" class="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium">FOCUS</span>
+              <span :class="statusClass(p.status)" class="text-[10px] px-1.5 py-0.5 rounded font-medium">{{p.status}}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click.stop="toggleFocus(p)" class="text-xs border px-2 py-0.5 rounded hover:bg-slate-50"
+                :class="p.is_focus?'border-indigo-300 text-indigo-600':'border-slate-200 text-slate-500'">
+                {{p.is_focus?'Unfocus':'Focus'}}
+              </button>
+            </div>
+          </div>
+          <div class="h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
+            <div class="h-full bg-indigo-500 rounded-full transition-all" :style="{width:(p.progress||0)+'%'}"></div>
+          </div>
+          <div class="flex justify-between text-xs text-slate-500">
+            <span>{{p.progress||0}}% · {{p.owner||'No owner'}}</span>
+            <span>{{p.start_date||'?'}} → {{p.target_date||'?'}}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="filteredProjects.length===0" class="text-center py-12 text-slate-400">No projects yet. Click "New Project" to create one.</div>
+    </section>
+
+    <!-- ═══════════════════ PROJECT DETAIL ═══════════════════ -->
+    <section v-if="page==='project-detail' && currentProject">
+      <button @click="goPage('projects')" class="text-sm text-indigo-600 hover:underline mb-3 inline-block">&larr; Back to Projects</button>
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <h2 class="text-xl font-bold text-slate-800">{{currentProject.name}}</h2>
+          <span :class="statusClass(currentProject.status)" class="text-xs px-2 py-0.5 rounded font-medium">{{currentProject.status}}</span>
+          <span v-if="currentProject.is_focus" class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">FOCUS</span>
+        </div>
+        <button @click="openProjectModal(currentProject)" class="text-sm text-indigo-600 hover:underline">Edit</button>
+      </div>
+
+      <!-- Intro -->
+      <div v-if="currentProject.intro_markdown" class="bg-white rounded-xl shadow-sm border p-5 mb-4 prose text-sm" v-html="renderMd(currentProject.intro_markdown)"></div>
+
+      <!-- Meta -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="bg-white rounded-xl shadow-sm border p-3 text-center">
+          <div class="text-xs text-slate-500">Progress</div>
+          <div class="text-xl font-bold text-indigo-600">{{currentProject.progress}}%</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-3 text-center">
+          <div class="text-xs text-slate-500">Owner</div>
+          <div class="text-sm font-medium text-slate-700">{{currentProject.owner||'—'}}</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-3 text-center">
+          <div class="text-xs text-slate-500">Start</div>
+          <div class="text-sm text-slate-700">{{currentProject.start_date||'—'}}</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border p-3 text-center">
+          <div class="text-xs text-slate-500">Target</div>
+          <div class="text-sm text-slate-700">{{currentProject.target_date||'—'}}</div>
+        </div>
+      </div>
+
+      <!-- Milestones -->
+      <div class="bg-white rounded-xl shadow-sm border p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-700">Milestones</h3>
+          <button @click="openMilestoneModal()" class="text-xs text-indigo-600 hover:underline">+ Add</button>
+        </div>
+        <div v-if="currentProject.milestones?.length" class="space-y-2">
+          <div v-for="m in currentProject.milestones" :key="m.id" class="flex items-center gap-3 border-b border-slate-50 pb-2">
+            <select :value="m.status" @change="updateMilestoneStatus(m, $event.target.value)"
+              class="text-xs border rounded px-1.5 py-0.5 w-24" :class="m.status==='done'?'text-green-700 bg-green-50':'text-slate-600'">
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <span class="text-sm flex-1" :class="m.status==='done'?'line-through text-slate-400':'text-slate-700'">{{m.title}}</span>
+            <span class="text-xs text-slate-400">{{m.due_date||'—'}}</span>
+            <button @click="deleteMilestone(m)" class="text-xs text-slate-400 hover:text-red-500">×</button>
+          </div>
+        </div>
+        <div v-else class="text-sm text-slate-400">No milestones</div>
+      </div>
+
+      <!-- Project OKRs -->
+      <div class="bg-white rounded-xl shadow-sm border p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-700">Project OKRs</h3>
+          <button @click="openObjectiveModal('project', currentProject.id)" class="text-xs text-indigo-600 hover:underline">+ Add Objective</button>
+        </div>
+        <div v-for="obj in currentProject.objectives" :key="obj.id" class="mb-4 last:mb-0">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-medium text-sm text-slate-700">{{obj.code}} {{obj.title}}</span>
+            <div class="flex items-center gap-2">
+              <span :class="objStatusClass(obj.status)" class="text-[10px] px-1.5 py-0.5 rounded font-medium">{{obj.status.replace('_',' ')}}</span>
+              <button @click="openKRModal(obj.id)" class="text-xs text-indigo-600 hover:underline">+ KR</button>
+            </div>
+          </div>
+          <div v-for="kr in obj.key_results" :key="kr.id" class="ml-4 mb-2 bg-slate-50 rounded-lg p-3">
+            <div class="flex items-center gap-2 mb-1">
+              <span :class="confidenceClasses(kr.confidence_score)" class="w-2.5 h-2.5 rounded-full shrink-0"></span>
+              <span class="text-sm text-slate-700 flex-1">{{kr.code}} {{kr.title}}</span>
+              <span class="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{{kr.update_source}}</span>
+            </div>
+            <div class="flex items-center gap-2 mb-1">
+              <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all" :class="confidenceBg(kr.confidence_score)" :style="{width:krProgress(kr)+'%'}"></div>
+              </div>
+              <span class="text-xs text-slate-500 w-20 text-right">{{kr.current_value}}/{{kr.target_value}}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="openKRUpdateModal(kr)" class="text-xs text-indigo-600 hover:underline">Update</button>
+              <button @click="showKRHistory(kr)" class="text-xs text-slate-500 hover:underline">History</button>
+            </div>
+          </div>
+        </div>
+        <div v-if="!currentProject.objectives?.length" class="text-sm text-slate-400">No OKRs</div>
+      </div>
+
+      <!-- Linked tasks -->
+      <div class="bg-white rounded-xl shadow-sm border p-5 mb-4">
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Linked Tasks (from Feishu)</h3>
+        <div v-if="currentProject.tasks?.length" class="space-y-1">
+          <div v-for="t in currentProject.tasks" :key="t.id" class="flex items-center gap-2 text-sm border-b border-slate-50 py-1.5">
+            <span :class="t.status?.includes('done')||t.status?.includes('完成')?'text-green-500':'text-slate-400'">&#9679;</span>
+            <span class="flex-1 truncate">{{t.title}}</span>
+            <span class="text-xs text-slate-400">{{t.due_date||''}}</span>
+            <span v-if="t.priority" :class="priorityClass(t.priority)" class="text-[10px] px-1.5 py-0.5 rounded">{{t.priority}}</span>
+          </div>
+        </div>
+        <div v-else class="text-sm text-slate-400">No tasks synced for this project</div>
+      </div>
+
+      <!-- Bots -->
+      <div v-if="currentProject.bot_links?.length" class="bg-white rounded-xl shadow-sm border p-5 mb-4">
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Linked Bots</h3>
+        <div class="space-y-2">
+          <div v-for="bl in currentProject.bot_links" :key="bl.id" class="flex items-center gap-3 text-sm">
+            <span class="font-medium text-indigo-600">{{bl.bot_name}}</span>
+            <span class="text-xs text-slate-500">{{bl.bot_role}}</span>
+            <span class="text-xs text-slate-400 ml-auto">{{bl.responsibility}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blockers for this project -->
+      <div v-if="currentProject.blockers?.length" class="bg-white rounded-xl shadow-sm border p-5">
+        <h3 class="text-sm font-semibold text-slate-700 mb-3 text-red-600">Blockers</h3>
+        <div class="space-y-2">
+          <div v-for="b in currentProject.blockers" :key="b.id" class="bg-red-50 rounded-lg px-3 py-2 text-sm border border-red-100">
+            <span class="font-medium text-red-700">{{b.title}}</span>
+            <span class="text-xs text-red-500 ml-2">Blocked by: {{b.blocker}}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ COMPANY OKR ═══════════════════ -->
+    <section v-if="page==='company-okr'">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-bold text-slate-800">Company OKR</h2>
+        <div class="flex items-center gap-2">
+          <select v-model="selectedPeriod" @change="fetchCompanyOKRs" class="border rounded-lg px-3 py-1.5 text-sm">
+            <option v-for="p in periods" :key="p" :value="p">{{p}}</option>
+          </select>
+          <button @click="openObjectiveModal('company')" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">+ Objective</button>
+        </div>
+      </div>
+
+      <div v-if="companyObjectives.length===0" class="text-center py-12 text-slate-400">No objectives for {{selectedPeriod}}. Create one to get started.</div>
+
+      <div class="space-y-4">
+        <div v-for="obj in companyObjectives" :key="obj.id" class="bg-white rounded-xl shadow-sm border p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="font-semibold text-slate-800">{{obj.code}}</span>
+              <span class="ml-2 text-slate-700">{{obj.title}}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span :class="objStatusClass(obj.status)" class="text-xs px-2 py-0.5 rounded font-medium">{{obj.status.replace('_',' ')}}</span>
+              <button @click="openObjectiveModal('company', null, obj)" class="text-xs text-slate-500 hover:underline">Edit</button>
+              <button @click="deleteObjective(obj)" class="text-xs text-slate-400 hover:text-red-500">Del</button>
+              <button @click="openKRModal(obj.id)" class="text-xs text-indigo-600 hover:underline">+ KR</button>
+            </div>
+          </div>
+          <p v-if="obj.description" class="text-sm text-slate-500 mb-3">{{obj.description}}</p>
+          <div class="space-y-3">
+            <div v-for="kr in obj.key_results" :key="kr.id" class="bg-slate-50 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span :class="confidenceClasses(kr.confidence_score)" class="w-3 h-3 rounded-full shrink-0"></span>
+                <span class="font-medium text-sm text-slate-700">{{kr.code}}</span>
+                <span class="text-sm text-slate-600 flex-1">{{kr.title}}</span>
+                <span class="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{{kr.update_source}}</span>
+              </div>
+              <div class="flex items-center gap-3 mb-2">
+                <div class="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full transition-all" :class="confidenceBg(kr.confidence_score)" :style="{width:krProgress(kr)+'%'}"></div>
+                </div>
+                <span class="text-sm font-mono text-slate-600 w-28 text-right">{{kr.current_value}} / {{kr.target_value}}</span>
+                <span class="text-sm font-bold" :class="confidenceText(kr.confidence_score)">{{krProgress(kr)}}%</span>
+              </div>
+              <div class="flex items-center gap-3 text-xs">
+                <span class="text-slate-400">Updated: {{kr.updated_at?.substring(0,16)||'—'}}</span>
+                <button @click="openKRUpdateModal(kr)" class="text-indigo-600 hover:underline">Update Value</button>
+                <button @click="showKRHistory(kr)" class="text-slate-500 hover:underline">History</button>
+                <button @click="deleteKR(kr)" class="text-slate-400 hover:text-red-500">Delete</button>
+              </div>
+            </div>
+          </div>
+          <div v-if="!obj.key_results?.length" class="text-sm text-slate-400 mt-2">No Key Results yet</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ BOTS ═══════════════════ -->
+    <section v-if="page==='bots'">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-bold text-slate-800">Bots</h2>
+        <button @click="openBotModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">+ Add Bot</button>
+      </div>
+      <div v-if="botList.length===0" class="text-center py-12 text-slate-400">No bots registered. Seed from Ansible or add manually.</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-for="bot in botList" :key="bot.id" class="bg-white rounded-xl shadow-sm border p-5">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-semibold text-slate-800">{{bot.name}}</span>
+            <span :class="bot.enabled?'bg-green-100 text-green-700':'bg-slate-100 text-slate-500'" class="text-[10px] px-1.5 py-0.5 rounded font-medium">
+              {{bot.enabled?'Enabled':'Disabled'}}
+            </span>
+          </div>
+          <div class="text-xs text-slate-500 mb-1 font-mono">{{bot.agent_id}}</div>
+          <div v-if="bot.role" class="text-sm text-slate-600 mb-2">{{bot.role}}</div>
+          <div v-if="bot.description" class="text-xs text-slate-400 mb-3">{{bot.description}}</div>
+          <div class="flex items-center gap-4 text-xs text-slate-500 mb-2">
+            <span>Tasks: {{bot.task_stats?.total||0}}</span>
+            <span class="text-green-600">Done: {{bot.task_stats?.completed||0}}</span>
+            <span class="text-amber-600">Pending: {{bot.task_stats?.pending||0}}</span>
+          </div>
+          <div v-if="bot.linked_projects?.length" class="flex flex-wrap gap-1 mb-2">
+            <span v-for="slug in bot.linked_projects" :key="slug" class="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{{slug}}</span>
+          </div>
+          <div class="flex gap-2 mt-2">
+            <button @click="openBotModal(bot)" class="text-xs text-indigo-600 hover:underline">Edit</button>
+            <button @click="deleteBot(bot)" class="text-xs text-slate-400 hover:text-red-500">Delete</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ DECISION LOG ═══════════════════ -->
+    <section v-if="page==='decision-log'">
+      <h2 class="text-xl font-bold text-slate-800 mb-5">Decision Log</h2>
+      <div v-if="decisionLog.length===0" class="text-center py-12 text-slate-400">No daily logs found. The Cyber Boss agent will create logs after it runs.</div>
+      <div class="space-y-4">
+        <div v-for="entry in decisionLog" :key="entry.date" class="bg-white rounded-xl shadow-sm border p-5">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-semibold text-slate-800">{{entry.date}}</span>
+            <span class="text-xs text-slate-400">{{entry.filename}}</span>
+          </div>
+          <div class="prose text-sm max-w-none" v-html="renderMd(entry.content)"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ SETTINGS ═══════════════════ -->
+    <section v-if="page==='settings'" class="max-w-2xl space-y-4">
+      <h2 class="text-xl font-bold text-slate-800 mb-5">Settings & Sync</h2>
+
+      <!-- Sync status -->
+      <div class="bg-white rounded-xl shadow-sm border p-5">
+        <h3 class="font-semibold text-slate-700 mb-3">Sync Status</h3>
+        <div class="space-y-2 mb-4">
+          <div v-for="run in syncRuns" :key="run.id" class="flex items-center gap-3 text-sm border-b border-slate-50 pb-2">
+            <span :class="run.status==='success'?'text-green-500':run.status==='error'?'text-red-500':'text-amber-500'">&#9679;</span>
+            <span class="text-slate-600">{{run.source}}</span>
+            <span class="text-xs text-slate-400">{{run.started_at}}</span>
+            <span class="text-xs">{{run.records_synced}} records</span>
+            <span v-if="run.error_summary" class="text-xs text-red-500 truncate max-w-[200px]">{{run.error_summary}}</span>
+          </div>
+          <div v-if="syncRuns.length===0" class="text-sm text-slate-400">No sync runs</div>
+        </div>
+        <button @click="triggerSync" :disabled="syncing" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+          {{syncing?'Syncing...':'Trigger Sync'}}
+        </button>
+      </div>
+
+      <!-- Settings form -->
+      <div class="bg-white rounded-xl shadow-sm border p-5">
+        <h3 class="font-semibold text-slate-700 mb-3">Configuration</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">Current OKR Period</label>
+            <input v-model="settingsForm.current_period" type="text" placeholder="2026-Q2" class="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">Feishu Base ID</label>
+            <input v-model="settingsForm.feishu_base_id" type="text" placeholder="base_xxxx" class="w-full border rounded-lg px-3 py-2 text-sm font-mono" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">Feishu Table ID</label>
+            <input v-model="settingsForm.feishu_table_id" type="text" placeholder="tbl_xxxx" class="w-full border rounded-lg px-3 py-2 text-sm font-mono" />
+          </div>
+        </div>
+        <div class="mt-4 flex items-center gap-3">
+          <button @click="saveSettings" :disabled="settingsSaving" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-900 disabled:opacity-50">
+            {{settingsSaving?'Saving...':'Save'}}
+          </button>
+          <span v-if="settingsSaved" class="text-green-600 text-sm">Saved</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ MODALS ═══════ -->
+
+    <!-- Project Modal -->
+    <div v-if="showProjectModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showProjectModal=false">
+      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+        <h3 class="font-semibold mb-4">{{projectForm.id?'Edit':'New'}} Project</h3>
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">Slug *</label>
+              <input v-model="projectForm.slug" type="text" :disabled="!!projectForm.id" class="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-50" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Name *</label>
+              <input v-model="projectForm.name" type="text" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">Owner</label>
+              <input v-model="projectForm.owner" type="text" class="w-full border rounded px-3 py-2 text-sm" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Status</label>
+              <select v-model="projectForm.status" class="w-full border rounded px-3 py-2 text-sm">
+                <option v-for="s in ['active','paused','done','archived']" :key="s" :value="s">{{s}}</option>
+              </select></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">Start Date</label>
+              <input v-model="projectForm.start_date" type="date" class="w-full border rounded px-3 py-2 text-sm" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Target Date</label>
+              <input v-model="projectForm.target_date" type="date" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          </div>
+          <div><label class="block text-xs text-slate-500 mb-1">Intro (Markdown)</label>
+            <textarea v-model="projectForm.intro_markdown" rows="5" class="w-full border rounded px-3 py-2 text-sm font-mono"></textarea></div>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="projectForm.is_focus" /> Mark as Focus</label>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button @click="showProjectModal=false" class="px-4 py-2 border rounded text-sm">Cancel</button>
+          <button @click="saveProject" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Objective Modal -->
+    <div v-if="showObjModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showObjModal=false">
+      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+        <h3 class="font-semibold mb-4">{{objForm.id?'Edit':'New'}} Objective ({{objForm.scope}})</h3>
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">Code *</label>
+              <input v-model="objForm.code" type="text" placeholder="O1" class="w-full border rounded px-3 py-2 text-sm" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Period *</label>
+              <input v-model="objForm.period" type="text" placeholder="2026-Q2" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          </div>
+          <div><label class="block text-xs text-slate-500 mb-1">Title *</label>
+            <input v-model="objForm.title" type="text" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          <div><label class="block text-xs text-slate-500 mb-1">Description</label>
+            <textarea v-model="objForm.description" rows="2" class="w-full border rounded px-3 py-2 text-sm"></textarea></div>
+          <div><label class="block text-xs text-slate-500 mb-1">Status</label>
+            <select v-model="objForm.status" class="w-full border rounded px-3 py-2 text-sm">
+              <option value="on_track">On Track</option><option value="at_risk">At Risk</option><option value="off_track">Off Track</option>
+            </select></div>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button @click="showObjModal=false" class="px-4 py-2 border rounded text-sm">Cancel</button>
+          <button @click="saveObjective" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KR Modal -->
+    <div v-if="showKRModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showKRModal=false">
+      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+        <h3 class="font-semibold mb-4">New Key Result</h3>
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">Code *</label>
+              <input v-model="krForm.code" type="text" placeholder="KR1.1" class="w-full border rounded px-3 py-2 text-sm" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Metric Type</label>
+              <select v-model="krForm.metric_type" class="w-full border rounded px-3 py-2 text-sm">
+                <option value="percent">Percent</option><option value="number">Number</option><option value="boolean">Boolean</option>
+              </select></div>
+          </div>
+          <div><label class="block text-xs text-slate-500 mb-1">Title *</label>
+            <input v-model="krForm.title" type="text" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          <div class="grid grid-cols-3 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">Baseline</label>
+              <input v-model.number="krForm.baseline" type="number" class="w-full border rounded px-3 py-2 text-sm" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Current</label>
+              <input v-model.number="krForm.current_value" type="number" class="w-full border rounded px-3 py-2 text-sm" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Target</label>
+              <input v-model.number="krForm.target_value" type="number" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">Update Source</label>
+              <select v-model="krForm.update_source" class="w-full border rounded px-3 py-2 text-sm">
+                <option value="manual">Manual</option><option value="feishu_task_ratio">Feishu Task Ratio</option><option value="feishu_bitable">Feishu Bitable</option>
+              </select></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Confidence</label>
+              <select v-model="krForm.confidence_score" class="w-full border rounded px-3 py-2 text-sm">
+                <option value="green">On Track</option><option value="yellow">At Risk</option><option value="red">Off Track</option>
+              </select></div>
+          </div>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button @click="showKRModal=false" class="px-4 py-2 border rounded text-sm">Cancel</button>
+          <button @click="saveKR" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KR Update Modal -->
+    <div v-if="showKRUpdateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showKRUpdateModal=false">
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+        <h3 class="font-semibold mb-4">Update KR: {{krUpdateForm.code}} {{krUpdateForm.title}}</h3>
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">New Value</label>
+              <input v-model.number="krUpdateForm.value" type="number" class="w-full border rounded px-3 py-2 text-sm" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Confidence</label>
+              <select v-model="krUpdateForm.confidence_score" class="w-full border rounded px-3 py-2 text-sm">
+                <option value="green">On Track</option><option value="yellow">At Risk</option><option value="red">Off Track</option>
+              </select></div>
+          </div>
+          <div><label class="block text-xs text-slate-500 mb-1">Note</label>
+            <textarea v-model="krUpdateForm.note" rows="2" class="w-full border rounded px-3 py-2 text-sm" placeholder="What changed?"></textarea></div>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button @click="showKRUpdateModal=false" class="px-4 py-2 border rounded text-sm">Cancel</button>
+          <button @click="submitKRUpdate" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Update</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KR History Drawer -->
+    <div v-if="showKRHistoryModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showKRHistoryModal=false">
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto p-6">
+        <h3 class="font-semibold mb-4">KR History: {{krHistoryTitle}}</h3>
+        <div v-if="krHistory.length===0" class="text-sm text-slate-400">No updates yet</div>
+        <div class="space-y-2">
+          <div v-for="h in krHistory" :key="h.id" class="border-b border-slate-100 pb-2">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="text-slate-500">{{h.old_value}} → <strong>{{h.new_value}}</strong></span>
+              <span :class="confidenceClasses(h.confidence_score)" class="w-2 h-2 rounded-full"></span>
+            </div>
+            <div class="text-xs text-slate-400">{{h.updated_at}} · {{h.updated_by}}</div>
+            <div v-if="h.note" class="text-xs text-slate-500 mt-0.5">{{h.note}}</div>
+          </div>
+        </div>
+        <button @click="showKRHistoryModal=false" class="mt-4 px-4 py-2 border rounded text-sm w-full">Close</button>
+      </div>
+    </div>
+
+    <!-- Milestone Modal -->
+    <div v-if="showMilestoneModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showMilestoneModal=false">
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+        <h3 class="font-semibold mb-4">New Milestone</h3>
+        <div class="space-y-3">
+          <div><label class="block text-xs text-slate-500 mb-1">Title *</label>
+            <input v-model="milestoneForm.title" type="text" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          <div><label class="block text-xs text-slate-500 mb-1">Due Date</label>
+            <input v-model="milestoneForm.due_date" type="date" class="w-full border rounded px-3 py-2 text-sm" /></div>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button @click="showMilestoneModal=false" class="px-4 py-2 border rounded text-sm">Cancel</button>
+          <button @click="saveMilestone" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bot Modal -->
+    <div v-if="showBotModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="showBotModal=false">
+      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+        <h3 class="font-semibold mb-4">{{botForm.id?'Edit':'New'}} Bot</h3>
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs text-slate-500 mb-1">Agent ID *</label>
+              <input v-model="botForm.agent_id" type="text" :disabled="!!botForm.id" class="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-50" /></div>
+            <div><label class="block text-xs text-slate-500 mb-1">Name *</label>
+              <input v-model="botForm.name" type="text" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          </div>
+          <div><label class="block text-xs text-slate-500 mb-1">Role</label>
+            <input v-model="botForm.role" type="text" class="w-full border rounded px-3 py-2 text-sm" /></div>
+          <div><label class="block text-xs text-slate-500 mb-1">Description</label>
+            <textarea v-model="botForm.description" rows="2" class="w-full border rounded px-3 py-2 text-sm"></textarea></div>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="botForm.enabled" /> Enabled</label>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button @click="showBotModal=false" class="px-4 py-2 border rounded text-sm">Cancel</button>
+          <button @click="saveBot" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const {createApp, ref, reactive, computed, onMounted, watch} = Vue;
+
+createApp({
+  setup() {
+    const page = ref('overview');
+    const sidebarOpen = ref(false);
+
+    const api = (path, opts = {}) => {
+      const headers = {...opts.headers};
+      if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+      return fetch('/api' + path, {...opts, headers}).then(async r => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        return j;
+      });
+    };
+
+    function goPage(p) { page.value = p; sidebarOpen.value = false; }
+
+    // ── Nav items ────────────────────────────────
+    const blockerCount = ref(0);
+    const navItems = computed(() => [
+      {page:'overview', icon:'📊', label:'Overview'},
+      {page:'blockers', icon:'🚨', label:'Blockers', badge: blockerCount.value>0 ? blockerCount.value : null},
+      {page:'projects', icon:'📁', label:'Projects'},
+      {page:'company-okr', icon:'🎯', label:'Company OKR'},
+      {page:'bots', icon:'🤖', label:'Bots'},
+      {page:'decision-log', icon:'📋', label:'Decision Log'},
+      {page:'settings', icon:'⚙️', label:'Settings'},
+    ]);
+
+    // ── Helpers ──────────────────────────────────
+    function krProgress(kr) {
+      const range = kr.target_value - kr.baseline;
+      if (range <= 0) return kr.metric_type === 'boolean' ? (kr.current_value ? 100 : 0) : 0;
+      return Math.min(100, Math.max(0, Math.round((kr.current_value - kr.baseline) / range * 100)));
+    }
+    function confidenceClasses(c) {
+      return c === 'red' ? 'bg-red-500' : c === 'yellow' ? 'bg-amber-400' : 'bg-green-500';
+    }
+    function confidenceBg(c) {
+      return c === 'red' ? 'bg-red-500' : c === 'yellow' ? 'bg-amber-400' : 'bg-indigo-500';
+    }
+    function confidenceText(c) {
+      return c === 'red' ? 'text-red-600' : c === 'yellow' ? 'text-amber-600' : 'text-indigo-600';
+    }
+    function statusClass(s) {
+      return {active:'bg-green-100 text-green-700', paused:'bg-amber-100 text-amber-700', done:'bg-slate-100 text-slate-600', archived:'bg-slate-100 text-slate-400'}[s] || 'bg-slate-100 text-slate-600';
+    }
+    function objStatusClass(s) {
+      return {on_track:'bg-green-100 text-green-700', at_risk:'bg-amber-100 text-amber-700', off_track:'bg-red-100 text-red-700'}[s] || 'bg-slate-100 text-slate-600';
+    }
+    function priorityClass(p) {
+      const lp = (p||'').toLowerCase();
+      if (lp.includes('p0') || lp.includes('urgent') || lp.includes('紧急')) return 'bg-red-100 text-red-700';
+      if (lp.includes('p1') || lp.includes('high') || lp.includes('高')) return 'bg-amber-100 text-amber-700';
+      return 'bg-slate-100 text-slate-600';
+    }
+    function isOverdue(d) { return d && new Date(d) < new Date(); }
+    function renderMd(text) {
+      try { return marked.parse(text || ''); } catch { return text; }
+    }
+
+    // ── Overview ─────────────────────────────────
+    const ov = ref({});
+    async function fetchOverview() {
+      try { ov.value = await api('/overview'); blockerCount.value = ov.value.blocker_count || 0; } catch {}
+    }
+
+    // ── Projects ─────────────────────────────────
+    const projects = ref([]);
+    const projectFilter = ref('all');
+    const filteredProjects = computed(() => {
+      if (projectFilter.value === 'all') return projects.value;
+      return projects.value.filter(p => p.status === projectFilter.value);
+    });
+    async function fetchProjects() { try { projects.value = await api('/projects'); } catch {} }
+    async function toggleFocus(p) {
+      await api('/projects/' + p.id, {method: 'PUT', body: JSON.stringify({is_focus: p.is_focus ? 0 : 1})});
+      fetchProjects();
+    }
+
+    // Project modal
+    const showProjectModal = ref(false);
+    const projectForm = reactive({id:null, slug:'', name:'', status:'active', intro_markdown:'', owner:'', start_date:'', target_date:'', is_focus:false});
+    function openProjectModal(p) {
+      if (p) { Object.assign(projectForm, {id:p.id, slug:p.slug, name:p.name, status:p.status, intro_markdown:p.intro_markdown||'', owner:p.owner||'', start_date:p.start_date||'', target_date:p.target_date||'', is_focus:!!p.is_focus}); }
+      else { Object.assign(projectForm, {id:null, slug:'', name:'', status:'active', intro_markdown:'', owner:'', start_date:'', target_date:'', is_focus:false}); }
+      showProjectModal.value = true;
+    }
+    async function saveProject() {
+      const body = {...projectForm};
+      if (body.id) {
+        await api('/projects/' + body.id, {method:'PUT', body:JSON.stringify(body)});
+      } else {
+        await api('/projects', {method:'POST', body:JSON.stringify(body)});
+      }
+      showProjectModal.value = false;
+      fetchProjects();
+      if (currentProject.value?.id === body.id) fetchProjectDetail(body.id);
+    }
+
+    // Project detail
+    const currentProject = ref(null);
+    async function fetchProjectDetail(id) {
+      try { currentProject.value = await api('/projects/' + id); } catch {}
+    }
+    function goProjectDetail(id) {
+      fetchProjectDetail(id);
+      page.value = 'project-detail';
+      sidebarOpen.value = false;
+    }
+
+    // ── Milestones ───────────────────────────────
+    const showMilestoneModal = ref(false);
+    const milestoneForm = reactive({title:'', due_date:''});
+    function openMilestoneModal() {
+      milestoneForm.title = ''; milestoneForm.due_date = '';
+      showMilestoneModal.value = true;
+    }
+    async function saveMilestone() {
+      if (!milestoneForm.title) return;
+      await api('/milestones', {method:'POST', body:JSON.stringify({project_id: currentProject.value.id, ...milestoneForm})});
+      showMilestoneModal.value = false;
+      fetchProjectDetail(currentProject.value.id);
+    }
+    async function updateMilestoneStatus(m, status) {
+      await api('/milestones/' + m.id, {method:'PUT', body:JSON.stringify({status})});
+      fetchProjectDetail(currentProject.value.id);
+    }
+    async function deleteMilestone(m) {
+      if (!confirm('Delete milestone?')) return;
+      await api('/milestones/' + m.id, {method:'DELETE'});
+      fetchProjectDetail(currentProject.value.id);
+    }
+
+    // ── Company OKR ──────────────────────────────
+    const selectedPeriod = ref('');
+    const periods = ref([]);
+    const companyObjectives = ref([]);
+    async function fetchPeriods() {
+      try {
+        periods.value = await api('/periods');
+        if (!selectedPeriod.value && periods.value.length) selectedPeriod.value = periods.value[0];
+        const settings = await api('/settings');
+        if (settings.current_period && !selectedPeriod.value) selectedPeriod.value = settings.current_period;
+        if (!periods.value.includes(selectedPeriod.value) && selectedPeriod.value) periods.value.unshift(selectedPeriod.value);
+      } catch {}
+    }
+    async function fetchCompanyOKRs() {
+      try { companyObjectives.value = await api('/objectives?scope=company&period=' + encodeURIComponent(selectedPeriod.value)); } catch {}
+    }
+
+    // Objective modal
+    const showObjModal = ref(false);
+    const objForm = reactive({id:null, scope:'company', project_id:null, period:'', code:'', title:'', description:'', status:'on_track'});
+    function openObjectiveModal(scope, projectId, existing) {
+      if (existing) {
+        Object.assign(objForm, {id:existing.id, scope:existing.scope, project_id:existing.project_id, period:existing.period, code:existing.code, title:existing.title, description:existing.description||'', status:existing.status});
+      } else {
+        Object.assign(objForm, {id:null, scope, project_id: projectId||null, period:selectedPeriod.value||'2026-Q2', code:'', title:'', description:'', status:'on_track'});
+      }
+      showObjModal.value = true;
+    }
+    async function saveObjective() {
+      if (!objForm.code || !objForm.title) return;
+      if (objForm.id) {
+        await api('/objectives/' + objForm.id, {method:'PUT', body:JSON.stringify(objForm)});
+      } else {
+        await api('/objectives', {method:'POST', body:JSON.stringify(objForm)});
+      }
+      showObjModal.value = false;
+      if (objForm.scope === 'company') fetchCompanyOKRs();
+      if (currentProject.value) fetchProjectDetail(currentProject.value.id);
+      fetchPeriods();
+    }
+    async function deleteObjective(obj) {
+      if (!confirm('Delete objective and all its KRs?')) return;
+      await api('/objectives/' + obj.id, {method:'DELETE'});
+      fetchCompanyOKRs();
+    }
+
+    // KR modal
+    const showKRModal = ref(false);
+    const krForm = reactive({objective_id:null, code:'', title:'', metric_type:'percent', baseline:0, current_value:0, target_value:100, update_source:'manual', confidence_score:'green'});
+    function openKRModal(objId) {
+      Object.assign(krForm, {objective_id:objId, code:'', title:'', metric_type:'percent', baseline:0, current_value:0, target_value:100, update_source:'manual', confidence_score:'green'});
+      showKRModal.value = true;
+    }
+    async function saveKR() {
+      if (!krForm.code || !krForm.title) return;
+      await api('/key-results', {method:'POST', body:JSON.stringify(krForm)});
+      showKRModal.value = false;
+      fetchCompanyOKRs();
+      if (currentProject.value) fetchProjectDetail(currentProject.value.id);
+    }
+    async function deleteKR(kr) {
+      if (!confirm('Delete KR?')) return;
+      await api('/key-results/' + kr.id, {method:'DELETE'});
+      fetchCompanyOKRs();
+      if (currentProject.value) fetchProjectDetail(currentProject.value.id);
+    }
+
+    // KR update modal
+    const showKRUpdateModal = ref(false);
+    const krUpdateForm = reactive({id:null, code:'', title:'', value:0, confidence_score:'green', note:''});
+    function openKRUpdateModal(kr) {
+      Object.assign(krUpdateForm, {id:kr.id, code:kr.code, title:kr.title, value:kr.current_value, confidence_score:kr.confidence_score, note:''});
+      showKRUpdateModal.value = true;
+    }
+    async function submitKRUpdate() {
+      await api('/key-results/' + krUpdateForm.id + '/update', {method:'POST', body:JSON.stringify({value:krUpdateForm.value, confidence_score:krUpdateForm.confidence_score, note:krUpdateForm.note})});
+      showKRUpdateModal.value = false;
+      fetchCompanyOKRs();
+      if (currentProject.value) fetchProjectDetail(currentProject.value.id);
+      fetchOverview();
+    }
+
+    // KR history
+    const showKRHistoryModal = ref(false);
+    const krHistory = ref([]);
+    const krHistoryTitle = ref('');
+    async function showKRHistory(kr) {
+      krHistoryTitle.value = kr.code + ' ' + kr.title;
+      try { krHistory.value = await api('/key-results/' + kr.id + '/history'); } catch { krHistory.value = []; }
+      showKRHistoryModal.value = true;
+    }
+
+    // ── Blockers ─────────────────────────────────
+    const blockers = ref([]);
+    async function fetchBlockers() { try { blockers.value = await api('/blockers'); } catch {} }
+
+    // ── Bots ─────────────────────────────────────
+    const botList = ref([]);
+    async function fetchBots() { try { botList.value = await api('/bots'); } catch {} }
+
+    const showBotModal = ref(false);
+    const botForm = reactive({id:null, agent_id:'', name:'', role:'', description:'', enabled:true});
+    function openBotModal(bot) {
+      if (bot) { Object.assign(botForm, {id:bot.id, agent_id:bot.agent_id, name:bot.name, role:bot.role||'', description:bot.description||'', enabled:!!bot.enabled}); }
+      else { Object.assign(botForm, {id:null, agent_id:'', name:'', role:'', description:'', enabled:true}); }
+      showBotModal.value = true;
+    }
+    async function saveBot() {
+      if (!botForm.agent_id || !botForm.name) return;
+      if (botForm.id) {
+        await api('/bots/' + botForm.id, {method:'PUT', body:JSON.stringify(botForm)});
+      } else {
+        await api('/bots', {method:'POST', body:JSON.stringify(botForm)});
+      }
+      showBotModal.value = false;
+      fetchBots();
+    }
+    async function deleteBot(bot) {
+      if (!confirm('Delete bot?')) return;
+      await api('/bots/' + bot.id, {method:'DELETE'});
+      fetchBots();
+    }
+
+    // ── Decision Log ─────────────────────────────
+    const decisionLog = ref([]);
+    async function fetchDecisionLog() { try { decisionLog.value = await api('/decision-log'); } catch {} }
+
+    // ── Settings ─────────────────────────────────
+    const settingsForm = reactive({current_period:'', feishu_base_id:'', feishu_table_id:''});
+    const settingsSaving = ref(false);
+    const settingsSaved = ref(false);
+    const syncRuns = ref([]);
+    const syncing = ref(false);
+
+    async function fetchSettings() {
+      try {
+        const s = await api('/settings');
+        Object.assign(settingsForm, s);
+        if (!selectedPeriod.value) selectedPeriod.value = s.current_period;
+      } catch {}
+    }
+    async function saveSettings() {
+      settingsSaving.value = true; settingsSaved.value = false;
+      try {
+        await api('/settings', {method:'PUT', body:JSON.stringify(settingsForm)});
+        settingsSaved.value = true;
+        setTimeout(() => settingsSaved.value = false, 3000);
+      } catch {} finally { settingsSaving.value = false; }
+    }
+    async function fetchSyncRuns() { try { syncRuns.value = await api('/sync/runs'); } catch {} }
+    async function triggerSync() {
+      syncing.value = true;
+      try { await api('/sync/trigger', {method:'POST'}); fetchSyncRuns(); } catch {} finally { syncing.value = false; }
+    }
+
+    // ── Navigation data loading ──────────────────
+    watch(page, (p) => {
+      if (p === 'overview') fetchOverview();
+      if (p === 'blockers') fetchBlockers();
+      if (p === 'projects') fetchProjects();
+      if (p === 'company-okr') { fetchPeriods().then(fetchCompanyOKRs); }
+      if (p === 'bots') fetchBots();
+      if (p === 'decision-log') fetchDecisionLog();
+      if (p === 'settings') { fetchSettings(); fetchSyncRuns(); }
+    });
+
+    onMounted(() => {
+      fetchOverview();
+      fetchProjects();
+      fetchSettings();
+      fetchPeriods();
+    });
+
+    return {
+      page, sidebarOpen, goPage, navItems,
+      ov, fetchOverview,
+      projects, projectFilter, filteredProjects, fetchProjects, toggleFocus,
+      showProjectModal, projectForm, openProjectModal, saveProject,
+      currentProject, fetchProjectDetail, goProjectDetail,
+      showMilestoneModal, milestoneForm, openMilestoneModal, saveMilestone, updateMilestoneStatus, deleteMilestone,
+      selectedPeriod, periods, companyObjectives, fetchCompanyOKRs, fetchPeriods,
+      showObjModal, objForm, openObjectiveModal, saveObjective, deleteObjective,
+      showKRModal, krForm, openKRModal, saveKR, deleteKR,
+      showKRUpdateModal, krUpdateForm, openKRUpdateModal, submitKRUpdate,
+      showKRHistoryModal, krHistory, krHistoryTitle, showKRHistory,
+      blockers, fetchBlockers, blockerCount,
+      botList, fetchBots, showBotModal, botForm, openBotModal, saveBot, deleteBot,
+      decisionLog, fetchDecisionLog,
+      settingsForm, settingsSaving, settingsSaved, saveSettings, syncRuns, syncing, fetchSyncRuns, triggerSync,
+      krProgress, confidenceClasses, confidenceBg, confidenceText,
+      statusClass, objStatusClass, priorityClass, isOverdue, renderMd,
+    };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+services:
+  cyber-boss-dashboard:
+    build: ./dashboard
+    container_name: cyber-boss-dashboard
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Asia/Shanghai
+      PORT: "${PORT:-18062}"
+      CB_DATA_DIR: "/app/data"
+      CB_DAILY_LOG_DIR: "/agent-memory"
+      FEISHU_APP_ID: "${FEISHU_APP_ID}"
+      FEISHU_APP_SECRET: "${FEISHU_APP_SECRET}"
+    volumes:
+      - ./data:/app/data
+      - ${AGENT_MEMORY_DIR:-./memory}:/agent-memory:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 256m

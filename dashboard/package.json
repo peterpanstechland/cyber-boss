@@ -1,0 +1,14 @@
+{
+  "name": "cyber-boss-dashboard",
+  "version": "1.0.0",
+  "description": "Cyber Boss Dashboard: Project tracking, OKRs, bot registry, and Feishu sync",
+  "main": "server.mjs",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.21.0"
+  }
+}
