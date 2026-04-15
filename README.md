@@ -57,20 +57,25 @@ Agent "铁哥" 每天从飞书多维表格（Bitable）读取你的真实任务�
 
 ```
 cyber-boss/
-├── dashboard/              # 管理后台
-│   ├── server.mjs          # Express + SQLite 后端
-│   ├── public/index.html   # Vue 3 + Tailwind SPA
+├── dashboard/                  # 管理后台
+│   ├── server.mjs              # Express + SQLite 后端
+│   ├── public/index.html       # Vue 3 + Tailwind SPA
 │   ├── package.json
 │   └── Dockerfile
-├── skill/                  # OpenClaw Skill 定义
-│   ├── SKILL.md            # Skill 元描述
-│   ├── TOOLS.md.example    # Agent 人设 + 规则模板
+├── skill/                      # OpenClaw Agent 完整配置
+│   ├── SKILL.md                # Skill 元描述
+│   ├── TOOLS.md.example        # 工具 + Bitable 配置 + 触发机制
+│   ├── IDENTITY.md.example     # 铁哥身份定义
+│   ├── SOUL.md.example         # 铁哥灵魂 / 性格 / 说话风格
+│   ├── USER.md.example         # 用户画像
+│   ├── AGENTS.md.example       # 工作空间启动流程
+│   ├── HEARTBEAT.md.example    # 定期巡检任务
 │   └── _meta.json
-├── trigger/                # 主动触发脚本
+├── trigger/                    # 主动触发脚本
 │   └── cyber-boss-trigger.py
-├── docs/                   # 文档
-├── docker-compose.yml      # Dashboard 部署
-├── .env.example            # 环境变量模板
+├── docs/                       # 文档 + 截图
+├── docker-compose.yml          # Dashboard 部署
+├── .env.example                # 环境变量模板
 └── README.md
 ```
 
