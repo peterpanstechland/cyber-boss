@@ -10,6 +10,20 @@ Cyber Boss 是面向超级个体 / 一人公司的 AI 执行节奏管理系统�
 
 Agent "铁哥" 每天从飞书多维表格（Bitable）读取你的真实任务池，按优先级排出今天该做的事，创建飞书任务，晚上检查你做了没有——对拖延行为绝不姑息。
 
+## 截图
+
+### 飞书 Bitable 任务池（5 个视图 + 12 字段）
+![Bitable Task Pool](docs/screenshots/01-bitable-task-pool.png)
+
+### 铁哥飞书对话（晨间排程）
+![Feishu Chat](docs/screenshots/02-feishu-chat.png)
+
+### Dashboard — Overview
+![Dashboard Overview](docs/screenshots/04-dashboard-overview.png)
+
+### Dashboard — Bot 矩阵（17 个角色 Bot）
+![Dashboard Bots](docs/screenshots/03-dashboard-bots.png)
+
 ## 架构
 
 ```
