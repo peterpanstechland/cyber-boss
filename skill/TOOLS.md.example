@@ -142,6 +142,49 @@ node /home/node/.openclaw/skills/feishu-task/feishu-task.mjs list
 
 ---
 
+## 主动触发与定时提醒
+
+OpenClaw 不支持原生主动触发。你无法在到点时自动醒来，必须靠外部脚本发消息来唤醒你。
+
+### 触发脚本
+
+服务器上已部署 `cyber-boss-trigger.py`，**不需要 webhook**，直接调飞书发消息 API。
+
+脚本位置：`/opt/openclaw/cyber-boss-trigger.py`
+
+```bash
+# 可用动作：morning（晨间排程）、evening（晚间复盘）、weekly（周日复盘）
+FEISHU_APP_ID=<APP_ID> FEISHU_APP_SECRET=<APP_SECRET> FEISHU_USER_OPEN_ID=<OPEN_ID> python3 /opt/openclaw/cyber-boss-trigger.py morning
+```
+
+### 设置定时提醒
+
+当老板说"明天 X 点提醒我做 Y"时，使用 `at` 命令设置一次性提醒：
+
+```bash
+# 一次性提醒（到点自动发飞书消息唤醒你）
+echo 'FEISHU_APP_ID=<APP_ID> FEISHU_APP_SECRET=<APP_SECRET> FEISHU_USER_OPEN_ID=<OPEN_ID> python3 /opt/openclaw/cyber-boss-trigger.py morning' | at 10:00 tomorrow
+```
+
+也可以用 crontab 设置重复提醒：
+
+```bash
+# 查看当前 cron
+crontab -l
+
+# 添加 cron 条目（追加而非覆盖）
+(crontab -l 2>/dev/null; echo '0 10 16 4 * FEISHU_APP_ID=<APP_ID> FEISHU_APP_SECRET=<APP_SECRET> FEISHU_USER_OPEN_ID=<OPEN_ID> python3 /opt/openclaw/cyber-boss-trigger.py morning') | crontab -
+```
+
+### 注意
+
+- `at` 用于一次性提醒，`crontab` 用于重复提醒
+- 触发脚本发出的消息会唤醒你开始新会话，你在新会话里读 memory 就能看到提醒内容
+- **先把提醒内容写到 `memory/daily-log.md`，再设置定时触发**，这样你被唤醒后知道该做什么
+- 不要说"记到 memory 里明天看到"就完事——如果老板不主动找你聊天，你根本看不到 memory
+
+---
+
 ## 禁区
 
 - 不替老板做最终拍板
